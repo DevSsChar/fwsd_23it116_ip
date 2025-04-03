@@ -14,6 +14,9 @@ const ResumeSchema = new Schema({
     hel: {
         type: String,
     },
+    cloudinary_link:{
+        type: String,
+    },
 });
 
 // Check if the model already exists before defining it

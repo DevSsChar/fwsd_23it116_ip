@@ -38,28 +38,29 @@ export default function Home() {
     setLoading(true);
     
     try {
-      // In a real app, you would submit this to your backend
-      // For now we'll simulate a successful upload
+      // Create FormData for the API request
       const formDataToSend = new FormData();
-      for (const key in formData) {
-        formDataToSend.append(key, formData[key]);
+      formDataToSend.append('fullName', formData.fullName);
+      formDataToSend.append('email', formData.email);
+      formDataToSend.append('phone', formData.phone);
+      formDataToSend.append('education', formData.education);
+      formDataToSend.append('resume', formData.resume);
+      
+      // Upload to server which will use Cloudinary
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formDataToSend,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to upload resume');
       }
       
-      // Simulating API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const result = await response.json();
       
-      // Mock response - in real app this would come from backend
-      const mockResponse = {
-        _id: `resume_${Date.now()}`,
-        fullName: formData.fullName,
-        email: formData.email,
-        phone: formData.phone,
-        education: formData.education,
-        resumeUrl: "#", // Would be Cloudinary URL in real app
-        createdAt: new Date().toISOString()
-      };
-      
-      setSubmissions([mockResponse, ...submissions]);
+      // Add new submission with Cloudinary URL
+      setSubmissions([result.data, ...submissions]);
       setMessage({ text: "Resume submitted successfully!", type: "success" });
       
       // Reset form
@@ -75,7 +76,8 @@ export default function Home() {
       document.getElementById("resumeFile").value = "";
       
     } catch (error) {
-      setMessage({ text: "Error submitting resume. Please try again.", type: "error" });
+      console.error('Upload error:', error);
+      setMessage({ text: error.message || "Error submitting resume. Please try again.", type: "error" });
     } finally {
       setLoading(false);
       
@@ -86,40 +88,28 @@ export default function Home() {
     }
   };
 
-  // Fetch existing submissions - would connect to backend in real app
+  // Fetch existing submissions from the backend API
   useEffect(() => {
-    // Simulate fetching data from an API
     const fetchSubmissions = async () => {
       setLoading(true);
       
       try {
-        // Simulating API call delay
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // Make API request to fetch all resumes
+        const response = await fetch('/api/resumes');
         
-        // Mock data
-        const mockData = [
-          {
-            _id: "resume_001",
-            fullName: "John Doe",
-            email: "john@example.com",
-            phone: "555-123-4567",
-            education: "master",
-            resumeUrl: "#",
-            createdAt: "2025-03-30T12:00:00Z"
-          },
-          {
-            _id: "resume_002",
-            fullName: "Jane Smith",
-            email: "jane@example.com",
-            phone: "555-987-6543",
-            education: "phd",
-            resumeUrl: "#",
-            createdAt: "2025-04-01T09:30:00Z"
-          }
-        ];
+        if (!response.ok) {
+          throw new Error('Failed to fetch submissions');
+        }
         
-        setSubmissions(mockData);
+        const result = await response.json();
+        
+        if (result.success) {
+          setSubmissions(result.data || []);
+        } else {
+          throw new Error(result.error || 'Error fetching submissions');
+        }
       } catch (error) {
+        console.error('Fetch error:', error);
         setMessage({ text: "Error loading submissions", type: "error" });
       } finally {
         setLoading(false);
@@ -303,21 +293,28 @@ export default function Home() {
                         {formatDate(item.createdAt)}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                        <a 
-                          href={item.resumeUrl} 
-                          className="text-blue-600 hover:text-blue-900"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          View PDF
-                        </a>
+                        {item.resumeUrl && item.resumeUrl !== "#" ? (
+                          <a 
+                            href={item.resumeUrl} 
+                            className="text-blue-600 hover:text-blue-900 flex items-center"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <svg className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                            </svg>
+                            View PDF
+                          </a>
+                        ) : (
+                          <span className="text-gray-400">Not available</span>
+                        )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               
-              {submissions.length === 0 && (
+              {submissions.length === 0 && !loading && (
                 <div className="text-center py-10 text-gray-500">
                   No submissions yet.
                 </div>
